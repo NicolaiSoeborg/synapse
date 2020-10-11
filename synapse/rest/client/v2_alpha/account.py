@@ -844,6 +844,61 @@ def assert_valid_next_link(hs: "HomeServer", next_link: str):
         )
 
 
+class MultiFactorAuthRestServlet(RestServlet):
+    PATTERNS = client_patterns("/account/mfa$")
+
+    def __init__(self, hs):
+        super().__init__()
+        self.hs = hs
+        self.auth = hs.get_auth()
+        self.auth_handler = hs.get_auth_handler()
+
+    @interactive_auth_handler
+    async def on_POST(self, request):
+        body = parse_json_object_from_request(request)
+
+        if not self.auth.has_access_token(request):
+            raise SynapseError(401, "Missing access token")
+
+        requester = await self.auth.get_user_by_req(request)
+        user_id = requester.user.to_string()
+
+        action = body.pop("action", None)
+        deviceName = body.pop("deviceName", None)
+
+        if action == "register":
+            challenge = self.hs.get_secrets().token_hex(64)
+            await self.auth_handler.set_session_data(
+                    session_id,
+                    "TODO:MfaData",
+                    {
+                        "deviceName": deviceName,
+                        "challenge": challenge
+                    })
+            return 200, {"challenge": challenge}
+
+        elif action == "set-pubkey":
+            stored_MFA_data = await self.auth_handler.get_session_data(session_id, "TODO:MfaData", None)
+            if not stored_MFA_data:
+                raise SynapseError(400, "Session missing MFA data")
+
+            pubkey = body.pop("pubkey", None)
+            if pubkey is None:
+                raise SynapseError(400,
+                        "Request missing MFA pubkey for %s".format(stored_MFA_data.get("deviceName", "[unnamed device]")),
+                        errcode=Codes.MISSING_PARAM)
+
+            logger.warning("MTA: Got pubkey.....: %s".format(pubkey))
+            logger.warning("MTA: It should match: %s".format(stired_MFA_data))
+            #if stored_MFA_data["challenge"] != pubkey.wat
+        else:
+            raise SynapseError(400, "Unknown MFA action: %s".format(action))
+
+    async def on_GET(self, request):
+        requester = await self.auth.get_user_by_req(request)
+        return 200, {"user_id": requester.user.to_string()}
+
+
 class WhoamiRestServlet(RestServlet):
     PATTERNS = client_patterns("/account/whoami$")
 
@@ -870,4 +925,5 @@ def register_servlets(hs, http_server):
     ThreepidBindRestServlet(hs).register(http_server)
     ThreepidUnbindRestServlet(hs).register(http_server)
     ThreepidDeleteRestServlet(hs).register(http_server)
+    MultiFactorAuthRestServlet(hs).register(http_server)
     WhoamiRestServlet(hs).register(http_server)

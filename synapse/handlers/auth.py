@@ -206,6 +206,10 @@ class AuthHandler(BaseHandler):
         ui_auth_types = login_types.copy()
         if self._sso_enabled:
             ui_auth_types.append(LoginType.SSO)
+
+        # Multi-factor auth for when users has a valid session:
+        ui_auth_types.append(LoginType.MFA)
+
         self._supported_ui_auth_types = ui_auth_types
 
         # Ratelimiter for failed auth during UIA. Uses same ratelimit config
@@ -516,7 +520,7 @@ class AuthHandler(BaseHandler):
                 # the keys (confusingly, clientdict may contain a password
                 # param, creds is just what the user authed as for UI auth
                 # and is not sensitive).
-                logger.info(
+                logger.warning(
                     "Auth completed with creds: %r. Client dict has keys: %r",
                     creds,
                     list(clientdict),

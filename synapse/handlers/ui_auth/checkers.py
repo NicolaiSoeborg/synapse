@@ -75,6 +75,24 @@ class TermsAuthChecker(UserInteractiveAuthChecker):
         return True
 
 
+class MultiFactorAuthChecker(UserInteractiveAuthChecker):
+    AUTH_TYPE = LoginType.MFA
+
+    def __init__(self, hs):
+        super().__init__(hs)
+        self._enabled = True  # bool(hs.config.mfa_enabled)
+        # self._http_client = hs.get_proxied_http_client()
+
+    def is_enabled(self):
+        return self._enabled
+
+    async def check_auth(self, authdict, clientip):
+        logger.warning(
+                "MFA checker: authdict=%s with remoteip %s", authdict, clientip
+        )
+        return True
+
+
 class RecaptchaAuthChecker(UserInteractiveAuthChecker):
     AUTH_TYPE = LoginType.RECAPTCHA
 
@@ -238,6 +256,7 @@ class MsisdnAuthChecker(UserInteractiveAuthChecker, _BaseThreepidAuthChecker):
 INTERACTIVE_AUTH_CHECKERS = [
     DummyAuthChecker,
     TermsAuthChecker,
+    MultiFactorAuthChecker,
     RecaptchaAuthChecker,
     EmailIdentityAuthChecker,
     MsisdnAuthChecker,

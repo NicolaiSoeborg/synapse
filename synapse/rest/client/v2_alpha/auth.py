@@ -73,6 +73,10 @@ class AuthRestServlet(RestServlet):
                 % (CLIENT_API_PREFIX, LoginType.RECAPTCHA),
                 sitekey=self.hs.config.recaptcha_public_key,
             )
+
+        elif stagetype == LoginType.MFA:
+            html = "TODO"
+
         elif stagetype == LoginType.TERMS:
             html = self.terms_template.render(
                 session=session,
@@ -127,7 +131,6 @@ class AuthRestServlet(RestServlet):
 
         if stagetype == LoginType.RECAPTCHA:
             response = parse_string(request, "g-recaptcha-response")
-
             if not response:
                 raise SynapseError(400, "No captcha response supplied")
 
@@ -146,6 +149,23 @@ class AuthRestServlet(RestServlet):
                     % (CLIENT_API_PREFIX, LoginType.RECAPTCHA),
                     sitekey=self.hs.config.recaptcha_public_key,
                 )
+
+        elif stagetype == LoginType.MFA:
+            response = parse_string(request, "attest")
+            if not response:
+                raise SynapseError(400, "No attest response supplied")
+
+            authdict = {"response": response, "session": session}
+
+            success = await self.auth_handler.add_oob_auth(
+                LoginType.MFA, authdict, self.hs.get_ip_from_request(request)
+            )
+
+            if success:
+                html = self.success_template.render()
+            else:
+                html = "TODO"
+
         elif stagetype == LoginType.TERMS:
             authdict = {"session": session}
 
@@ -166,9 +186,11 @@ class AuthRestServlet(RestServlet):
                     myurl="%s/r0/auth/%s/fallback/web"
                     % (CLIENT_API_PREFIX, LoginType.TERMS),
                 )
+
         elif stagetype == LoginType.SSO:
             # The SSO fallback workflow should not post here,
             raise SynapseError(404, "Fallback SSO auth does not support POST requests.")
+
         else:
             raise SynapseError(404, "Unknown auth stage type")
 

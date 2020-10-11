@@ -57,6 +57,7 @@ class JoinRules:
 
 class LoginType:
     PASSWORD = "m.login.password"
+    MFA = "m.login.mfa"
     EMAIL_IDENTITY = "m.login.email.identity"
     MSISDN = "m.login.msisdn"
     RECAPTCHA = "m.login.recaptcha"
